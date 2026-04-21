@@ -264,47 +264,7 @@ function switchTab(tab, element) {
     }
 }
 
-async function startDownload() {
-    const url = document.getElementById('urlInput').value.trim();
-    const quality = document.getElementById('qualitySelect').value;
-    const user = getCurrentUser();
-    
-    if (!url) {
-        alert('Please enter a URL');
-        return;
-    }
-    
-    // Prepare payload
-    const payload = { url, quality: parseInt(quality) };
 
-    if (user) {
-        payload['user'] = user;
-    }
-
-    const btn = document.getElementById('downloadBtn');
-    btn.disabled = true;
-    
-    try {
-        const response = await fetch('/api/download', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-            document.getElementById('urlInput').value = '';
-            document.querySelector('.tab').click();
-        } else {
-            alert(data.error || 'Failed to start download');
-        }
-    } catch (error) {
-        alert('Error: ' + error.message);
-    } finally {
-        btn.disabled = false;
-    }
-}
 
 
 async function loadConfig() {
@@ -475,7 +435,7 @@ function displayCurrentPage() {
     }
     
     resultsDiv.innerHTML = pageResults.map(result => `
-        <div class="search-result-item" data-id="${result.id}" data-source="${result.service}" data-type="${result.type}">
+        <div class="search-result-item" data-id="${result.id}" data-source="${result.service}" data-type="${result.type}" data-url="${result.url || ''}" data-title="${result.title || ''}" data-artist="${result.artist || ''}" data-album-art="${result.album_art || ''}">
             <div class="result-album-art placeholder" id="art-${result.id}">▶</div>
             <div class="result-info">
                 <span class="result-service">${result.service}</span>
@@ -484,7 +444,7 @@ function displayCurrentPage() {
                 ${result.id ? `<div class="result-id">ID: ${result.id} (${result.type})</div>` : ''}
             </div>
             ${result.url ? `
-                <button class="result-download-btn" onclick="downloadFromUrl('${result.url}')">
+                <button class="result-download-btn" onclick="startDownload(this)">
                     DOWNLOAD
                 </button>
             ` : `
@@ -620,40 +580,55 @@ async function loadAlbumArtForVisibleItems() {
     }
 }
 
-async function downloadFromUrl(url) {
+async function startDownload(source, metadata = null) {
     const quality = document.getElementById('qualitySelect').value;
     const user = getCurrentUser();
+    const urlInput = document.getElementById('urlInput');
+    const btn = document.getElementById('downloadBtn');
     
-    const searchResults = document.querySelectorAll('.search-result-item');
-    let metadata = {};
+    let url;
+    let fromInput = false;
     
-    searchResults.forEach(item => {
-        const btn = item.querySelector('.result-download-btn');
-        if (btn && btn.onclick && btn.onclick.toString().includes(url)) {
-            const serviceEl = item.querySelector('.result-service');
-            const titleEl = item.querySelector('.result-title');
-            const artistEl = item.querySelector('.result-artist');
-            const artImg = item.querySelector('.result-album-art img');
-            
-            metadata = {
-                title: titleEl?.textContent || '',
-                artist: artistEl?.textContent || '',
-                service: serviceEl?.textContent?.toLowerCase() || '',
-                album_art: artImg?.src || ''
-            };
+    // Handle different call patterns
+    if (source && typeof source === 'object' && source.tagName) {
+        // Called from search result button - read data attributes
+        const item = source.closest('.search-result-item');
+        url = item?.dataset?.url;
+        metadata = {
+            title: item?.dataset?.title || '',
+            artist: item?.dataset?.artist || '',
+            service: item?.dataset?.source || '',
+            album_art: item?.dataset?.albumArt || ''
+        };
+    } else if (!source) {
+        // Called from startDownload (no args) - read from input
+        url = urlInput?.value.trim();
+        if (!url) {
+            alert('Please enter a URL');
+            return;
         }
-    });
-    
-    switchTab('active');
+        fromInput = true;
+    } else {
+        // Called with URL string directly (backward compatibility)
+        url = source;
+    }
     
     const payload = {
         url: url,
-        quality: parseInt(quality),
-        ...metadata
+        quality: parseInt(quality)
     };
-
+    
+    if (metadata) {
+        Object.assign(payload, metadata);
+    }
+    
     if (user) {
         payload['user'] = user;
+    }
+    
+    // Disable button if it exists
+    if (btn) {
+        btn.disabled = true;
     }
     
     try {
@@ -665,12 +640,21 @@ async function downloadFromUrl(url) {
         
         const data = await response.json();
         
-        if (!response.ok) {
+        if (response.ok) {
+            // Clear input if URL came from input field
+            if (fromInput && urlInput) {
+                urlInput.value = '';
+            }
+            switchTab('active');
+        } else {
             alert('Failed to start download: ' + (data.error || 'Unknown error'));
         }
-        
     } catch (error) {
         alert('Error: ' + error.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+        }
     }
 }
 
