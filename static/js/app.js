@@ -690,6 +690,24 @@ window.addEventListener('beforeunload', () => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Set default quality from environment variable
+    if (typeof window.DEFAULT_QUALITY !== 'undefined') {
+        const qualitySelect = document.getElementById('qualitySelect');
+        const quality = parseInt(window.DEFAULT_QUALITY);
+        if (qualitySelect && !isNaN(quality) && quality >= 0 && quality <= 3) {
+            qualitySelect.value = String(quality);
+        }
+    }
+    
+    // Set default search source from environment variable
+    if (typeof window.DEFAULT_SEARCH_SOURCE !== 'undefined') {
+        const searchSource = document.getElementById('searchSource');
+        const source = String(window.DEFAULT_SEARCH_SOURCE).toLowerCase().trim();
+        if (searchSource && ['qobuz', 'tidal', 'deezer', 'soundcloud'].includes(source)) {
+            searchSource.value = source;
+        }
+    }
+    
     const urlInput = document.getElementById('urlInput');
     if (urlInput) {
         urlInput.addEventListener('keypress', (e) => {

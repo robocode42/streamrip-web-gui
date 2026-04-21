@@ -24,6 +24,8 @@ STREAMRIP_CONFIG = os.environ.get('STREAMRIP_CONFIG', '/config/config.toml')
 DOWNLOAD_DIR = os.environ.get('DOWNLOAD_DIR', '/music') 
 MAX_CONCURRENT_DOWNLOADS = int(os.environ.get('MAX_CONCURRENT_DOWNLOADS', '2')) 
 STREAMRIP_USERS = os.environ.get("STREAMRIP_USERS")
+DEFAULT_QUALITY = int(os.environ.get('DEFAULT_QUALITY', '3'))
+DEFAULT_SEARCH_SOURCE = os.environ.get('DEFAULT_SEARCH_SOURCE', 'qobuz')
 
 download_queue = queue.Queue()
 active_downloads = {}
@@ -186,7 +188,7 @@ def create_user_routes(app, users):
         route_path = f"/{user}/"
 
         def user_route(user=user):
-            return render_template("index.html", user=user)
+            return render_template("index.html", user=user, default_quality=DEFAULT_QUALITY, default_search_source=DEFAULT_SEARCH_SOURCE)
 
         # Use a unique endpoint name for each route
         endpoint_name = f"user_{user}"
@@ -204,7 +206,7 @@ else:
     
     @app.route('/')
     def index():
-        return render_template('index.html', user=None)
+        return render_template('index.html', user=None, default_quality=DEFAULT_QUALITY, default_search_source=DEFAULT_SEARCH_SOURCE)
 
 @app.route('/api/download', methods=['POST'])
 def start_download():
