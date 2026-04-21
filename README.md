@@ -61,6 +61,8 @@ Follow the [Streamrip configuration guide](https://github.com/nathom/streamrip/w
       - DOWNLOAD_DIR=/music
       - MAX_CONCURRENT_DOWNLOADS=1
       # - STREAMRIP_USERS=user1,user2,user3 # optional: a list of users to separate downloads by user (e.g. DOWNLOAD_DIR/user1/)
+      # - DEFAULT_QUALITY=3 # optional: default quality selection (0=128kbps MP3, 1=320kbps MP3, 2=16-bit FLAC, 3=24-bit FLAC)
+      # - DEFAULT_SEARCH_SOURCE=qobuz # optional: default search source (qobuz, tidal, deezer, soundcloud)
     volumes:
       - /home/YOURUSERNAME/.config/streamrip:/config/streamrip:rw
       - /home/YOURUSERNAME/media-server/data/Music:/music:rw
@@ -95,6 +97,8 @@ services:
           - DOWNLOAD_DIR=/music
           - MAX_CONCURRENT_DOWNLOADS=2
           # - STREAMRIP_USERS=user1,user2,user3 # optional: a list of users to separate downloads by user (e.g. DOWNLOAD_DIR/user1/)
+          # - DEFAULT_QUALITY=3 # optional: default quality selection (0=128kbps MP3, 1=320kbps MP3, 2=16-bit FLAC, 3=24-bit FLAC)
+          # - DEFAULT_SEARCH_SOURCE=qobuz # optional: default search source (qobuz, tidal, deezer, soundcloud)
         volumes:
           - /home/YOURUSERNAME/.config/streamrip:/config/streamrip:rw
           - /home/YOURUSERNAME/media-server/data/Music:/music:rw
