@@ -237,8 +237,22 @@ def start_download():
         except Exception as e:
             return jsonify({"error": f"Failed to create directory: {e}"}), 500
     
-    metadata = extract_metadata_from_url(url)
-    
+    # Metadata: use provided fields or extract from URL
+    title = data.get('title')
+    artist = data.get('artist')
+    album_art = data.get('album_art')
+    service = data.get('service')
+
+    if title and artist and service:
+        metadata = {
+            'title': title,
+            'artist': artist,
+            'album_art': album_art,
+            'service': service
+        }
+    else:
+        metadata = extract_metadata_from_url(url)
+
     task_id = f"dl_{int(time.time() * 1000)}"
     task = {
         'id': task_id,
@@ -248,10 +262,14 @@ def start_download():
         "directory": directory,
         "user": user,
     }
-    
+
     download_queue.put(task)
-    
-    return jsonify({'task_id': task_id, 'status': 'queued'})
+
+    return jsonify({
+        'task_id': task_id,
+        'status': 'queued',
+        'metadata': metadata
+    })
 
 
 @app.route('/api/status')
@@ -860,69 +878,8 @@ def fetch_deezer_metadata(item_id, item_type):
                 
     except Exception as e:
         logger.error(f"Error fetching Deezer metadata: {e}")
-    
     return metadata
-    
-    
-@app.route('/api/download-from-url', methods=['POST'])
-def download_from_url():
-    data = request.json
-    url = data.get('url')
-    quality = data.get('quality', 3)
-    user = data.get("user")
-    
-    title = data.get('title')
-    artist = data.get('artist')
-    album_art = data.get('album_art')
-    service = data.get('service')
-    
-    if not url:
-        return jsonify({'error': 'URL required'}), 400
-    
-    if USERS:
-        if not user or user not in USERS:
-            return jsonify({'error': 'Unauthorized or missing user'}), 403
-        directory = os.path.join(DOWNLOAD_DIR, user)
-    else:
-        directory = DOWNLOAD_DIR
 
-    if not os.path.exists(directory):
-        try:
-            os.makedirs(directory, exist_ok=True)
-        except Exception as e:
-            return jsonify({"error": f"Failed to create directory: {e}"}), 500
-    
-    if title and artist and service:
-        metadata = {
-            'title': title,
-            'artist': artist,
-            'album_art': album_art,
-            'service': service
-        }
-    else:
-        metadata = extract_metadata_from_url(url)
-    
-    task_id = f"dl_{int(time.time() * 1000)}"
-    task = {
-        'id': task_id,
-        'url': url,
-        'quality': quality,
-        'metadata': metadata,
-        "directory": directory,
-        "user": user,
-    }
-    
-    download_queue.put(task)
-    
-    return jsonify({
-        'task_id': task_id, 
-        'status': 'queued',
-        'metadata': metadata
-    })
-    
-    
-
-        
 
 if __name__ == '__main__':
     logger.info("Starting Streamrip Web application...")

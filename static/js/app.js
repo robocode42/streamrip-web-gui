@@ -657,7 +657,7 @@ async function downloadFromUrl(url) {
     }
     
     try {
-        const response = await fetch('/api/download-from-url', {
+        const response = await fetch('/api/download', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
