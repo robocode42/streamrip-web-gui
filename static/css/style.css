@@ -668,7 +668,6 @@ button:disabled {
     background: var(--border);
 }
 
-/* Add to your style.css file */
 .section {
     background: var(--bg-secondary);
     border: 1px solid var(--border);
@@ -873,4 +872,78 @@ button:disabled {
 .user-list a:hover {
     background: var(--bg-tertiary);
     border-color: var(--accent);
+}
+
+/* Responsive Design */
+.tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: smooth;
+    white-space: nowrap;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.tabs::-webkit-scrollbar {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    body {
+        padding: 10px;
+    }
+    
+    .input-group {
+        flex-direction: column;
+    }
+    
+    .input-group input,
+    .input-group select,
+    .input-group button {
+        width: 100%;
+        flex: none;
+    }
+    
+    select {
+        min-width: auto;
+    }
+    
+    .search-options {
+        flex-direction: column;
+    }
+    
+    .search-options select,
+    .search-type-selector {
+        width: 100%;
+        flex: none;
+    }
+    
+    .search-type-selector {
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+}
+
+@media (max-width: 480px) {
+    h1 {
+        font-size: 40px;
+    }
+    
+    .file-item {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .file-meta {
+        margin-left: 0;
+        margin-top: 4px;
+    }
+    
+    .config-buttons button {
+        width: 100%;
+    }
+    
+    .error-traceback pre {
+        padding: 8px;
+        font-size: 10px;
+    }
 }
