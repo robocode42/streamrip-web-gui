@@ -21,7 +21,7 @@
 }
 
 body {
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: "IBM Plex Mono", monospace;
     background: var(--bg-primary);
     color: var(--text-primary);
     min-height: 100vh;
@@ -53,7 +53,6 @@ h1 {
     text-transform: uppercase;
     letter-spacing: 2px;
 }
-
 
 .input-group {
     display: flex;
@@ -137,7 +136,7 @@ button:disabled {
     gap: 0;
     margin-bottom: 30px;
     border-bottom: 1px solid var(--border);
-        margin-top: 10px;
+    margin-top: 10px;
 }
 
 .tab {
@@ -212,28 +211,50 @@ button:disabled {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: "IBM Plex Mono", monospace;
     font-size: 20px;
     color: var(--accent);
 }
 
 .download-spinner::after {
-    content: '⠋';
+    content: "⠋";
     animation: terminal-spin 0.8s steps(10) infinite;
 }
 
 @keyframes terminal-spin {
-    0%   { content: '⠋'; }
-    10%  { content: '⠙'; }
-    20%  { content: '⠹'; }
-    30%  { content: '⠸'; }
-    40%  { content: '⠼'; }
-    50%  { content: '⠴'; }
-    60%  { content: '⠦'; }
-    70%  { content: '⠧'; }
-    80%  { content: '⠇'; }
-    90%  { content: '⠏'; }
-    100% { content: '⠋'; }
+    0% {
+        content: "⠋";
+    }
+    10% {
+        content: "⠙";
+    }
+    20% {
+        content: "⠹";
+    }
+    30% {
+        content: "⠸";
+    }
+    40% {
+        content: "⠼";
+    }
+    50% {
+        content: "⠴";
+    }
+    60% {
+        content: "⠦";
+    }
+    70% {
+        content: "⠧";
+    }
+    80% {
+        content: "⠇";
+    }
+    90% {
+        content: "⠏";
+    }
+    100% {
+        content: "⠋";
+    }
 }
 
 .download-album-art {
@@ -255,7 +276,6 @@ button:disabled {
     overflow: hidden;
 }
 
-
 .download-title {
     font-size: 15px;
     color: var(--text-primary);
@@ -275,7 +295,6 @@ button:disabled {
     white-space: nowrap;
 }
 
-
 .download-meta {
     display: flex;
     align-items: center;
@@ -292,7 +311,6 @@ button:disabled {
     border: 1px solid var(--text-tertiary);
     color: var(--text-tertiary);
 }
-
 
 .download-album-art.placeholder.success {
     color: var(--success);
@@ -313,7 +331,7 @@ button:disabled {
     padding: 15px;
     background: var(--bg-primary);
     border: 1px solid var(--border);
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: "IBM Plex Mono", monospace;
     font-size: 11px;
     max-height: 150px;
     overflow-y: auto;
@@ -358,22 +376,22 @@ button:disabled {
     border: 1px solid;
 }
 
-.status-badge.queued { 
+.status-badge.queued {
     color: var(--warning);
     border-color: var(--warning);
 }
 
-.status-badge.downloading { 
+.status-badge.downloading {
     color: var(--warning);
     border-color: var(--warning);
 }
 
-.status-badge.completed { 
+.status-badge.completed {
     color: var(--success);
     border-color: var(--success);
 }
 
-.status-badge.failed { 
+.status-badge.failed {
     color: var(--error);
     border-color: var(--error);
 }
@@ -385,7 +403,7 @@ button:disabled {
     background: var(--bg-primary);
     border: 1px solid var(--border);
     color: var(--text-primary);
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: "IBM Plex Mono", monospace;
     font-size: 13px;
     resize: vertical;
 }
@@ -426,7 +444,7 @@ button:disabled {
     font-size: 13px;
     color: var(--text-primary);
     word-break: break-all;
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: "IBM Plex Mono", monospace;
 }
 
 .file-meta {
@@ -588,7 +606,7 @@ button:disabled {
     font-size: 10px;
     color: var(--text-tertiary);
     margin-top: 4px;
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: "IBM Plex Mono", monospace;
 }
 
 .result-download-btn {
@@ -597,12 +615,11 @@ button:disabled {
     flex-shrink: 0;
 }
 
-.result-extra-meta
-{
+.result-extra-meta {
     font-size: 11px;
     color: var(--text-primary);
     margin-top: 4px;
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: "IBM Plex Mono", monospace;
 }
 /* Scrollbar Styling */
 ::-webkit-scrollbar {
@@ -625,9 +642,15 @@ button:disabled {
 
 /* Loading animation */
 @keyframes pulse {
-    0% { opacity: 0.3; }
-    50% { opacity: 0.6; }
-    100% { opacity: 0.3; }
+    0% {
+        opacity: 0.3;
+    }
+    50% {
+        opacity: 0.6;
+    }
+    100% {
+        opacity: 0.3;
+    }
 }
 
 .result-album-art.placeholder {
@@ -748,7 +771,7 @@ button:disabled {
     font-size: 12px;
     color: #999;
     margin: 5px 0;
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: "IBM Plex Mono", monospace;
 }
 
 .error-traceback {
@@ -823,15 +846,15 @@ button:disabled {
     .error-state {
         padding: 15px;
     }
-    
+
     .error-title {
         font-size: 16px;
     }
-    
+
     .error-message {
         font-size: 13px;
     }
-    
+
     .error-traceback pre {
         font-size: 10px;
         padding: 10px;
@@ -864,9 +887,11 @@ button:disabled {
     border-radius: 4px;
     text-decoration: none;
     color: var(--text-primary);
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: "IBM Plex Mono", monospace;
     font-size: 14px;
-    transition: background 0.2s, border-color 0.2s;
+    transition:
+        background 0.2s,
+        border-color 0.2s;
 }
 
 .user-list a:hover {
@@ -891,32 +916,32 @@ button:disabled {
     body {
         padding: 10px;
     }
-    
+
     .input-group {
         flex-direction: column;
     }
-    
+
     .input-group input,
     .input-group select,
     .input-group button {
         width: 100%;
         flex: none;
     }
-    
+
     select {
         min-width: auto;
     }
-    
+
     .search-options {
         flex-direction: column;
     }
-    
+
     .search-options select,
     .search-type-selector {
         width: 100%;
         flex: none;
     }
-    
+
     .search-type-selector {
         overflow-x: auto;
         white-space: nowrap;
@@ -927,21 +952,21 @@ button:disabled {
     h1 {
         font-size: 40px;
     }
-    
+
     .file-item {
         flex-direction: column;
         align-items: stretch;
     }
-    
+
     .file-meta {
         margin-left: 0;
         margin-top: 4px;
     }
-    
+
     .config-buttons button {
         width: 100%;
     }
-    
+
     .error-traceback pre {
         padding: 8px;
         font-size: 10px;

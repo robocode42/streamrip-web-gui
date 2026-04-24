@@ -2,9 +2,9 @@
 
 # Streamrip Web GUI
 
-A web interface for [Streamrip](https://github.com/nathom/streamrip), providing a GUI for downloading music from various streaming services. 
+A web interface for [Streamrip](https://github.com/nathom/streamrip), providing a GUI for downloading music from various streaming services.
 
-Streamrip is lit but CLI-only. Having to SSH into my stupid little server each time I wanted to download a track was too much effort for me. 
+Streamrip is lit but CLI-only. Having to SSH into my stupid little server each time I wanted to download a track was too much effort for me.
 (Mainly Quboz for me low key I don't even know if Tidal/Deezer work because I don't have accounts for them)
 
 Intended to be used for Docker/Docker-Compose but you can run it locally too.
@@ -36,39 +36,43 @@ Intended to be used for Docker/Docker-Compose but you can run it locally too.
 You MUST install and configure Streamrip first.
 
 1. Install Streamrip:
+
 ```bash
 pip install streamrip
 ```
 
 2. Configure Streamrip:
+
 ```bash
 rip config
 ```
+
 Follow the [Streamrip configuration guide](https://github.com/nathom/streamrip/wiki/Configuration) to set up your credentials.
 
-### Option 1: Pre-built workflow. 
+### Option 1: Pre-built workflow.
+
 1: Add this to your `docker-compose.yml`
 
 ```yaml
-  streamrip:
-    image: anoddname/streamrip-web-gui:latest 
-    container_name: streamrip-web
-    user: "1000:1000"
-    environment:
-      - HOME=/config
-      - XDG_CONFIG_HOME=/config
-      - STREAMRIP_CONFIG=/config/streamrip/config.toml
-      - DOWNLOAD_DIR=/music
-      - MAX_CONCURRENT_DOWNLOADS=1
-      # - STREAMRIP_USERS=user1,user2,user3 # optional: a list of users to separate downloads by user (e.g. DOWNLOAD_DIR/user1/)
-      # - DEFAULT_QUALITY=3 # optional: default quality selection (0=128kbps MP3, 1=320kbps MP3, 2=16-bit FLAC, 3=24-bit FLAC)
-      # - DEFAULT_SEARCH_SOURCE=qobuz # optional: default search source (qobuz, tidal, deezer, soundcloud)
-    volumes:
-      - /home/YOURUSERNAME/.config/streamrip:/config/streamrip:rw
-      - /home/YOURUSERNAME/media-server/data/Music:/music:rw
-    ports:
-      - "5002:5000"
-    restart: unless-stopped
+streamrip:
+  image: anoddname/streamrip-web-gui:latest
+  container_name: streamrip-web
+  user: "1000:1000"
+  environment:
+    - HOME=/config
+    - XDG_CONFIG_HOME=/config
+    - STREAMRIP_CONFIG=/config/streamrip/config.toml
+    - DOWNLOAD_DIR=/music
+    - MAX_CONCURRENT_DOWNLOADS=1
+    # - STREAMRIP_USERS=user1,user2,user3 # optional: a list of users to separate downloads by user (e.g. DOWNLOAD_DIR/user1/)
+    # - DEFAULT_QUALITY=3 # optional: default quality selection (0=128kbps MP3, 1=320kbps MP3, 2=16-bit FLAC, 3=24-bit FLAC)
+    # - DEFAULT_SEARCH_SOURCE=qobuz # optional: default search source (qobuz, tidal, deezer, soundcloud)
+  volumes:
+    - /home/YOURUSERNAME/.config/streamrip:/config/streamrip:rw
+    - /home/YOURUSERNAME/media-server/data/Music:/music:rw
+  ports:
+    - "5002:5000"
+  restart: unless-stopped
 ```
 
 2: run with `docker-compose up`
@@ -78,50 +82,53 @@ Follow the [Streamrip configuration guide](https://github.com/nathom/streamrip/w
 ### Option 2: Docker
 
 1. Clone the repository:
+
 ```bash
 git clone https://github.com/anoddname/streamrip-web-gui.git
 cd streamrip-web
 ```
 
 2. Create a `docker-compose.yml` file:
+
 ```yaml
-services:    
+services:
   streamrip:
-        build:
-          context: ./streamrip-web
-          target: image-prod  # use image-dev for local development
-        container_name: streamrip
-        user: "1000:1000" 
-        environment:
-          - HOME=/config
-          - XDG_CONFIG_HOME=/config
-          - STREAMRIP_CONFIG=/config/streamrip/config.toml
-          - DOWNLOAD_DIR=/music
-          - MAX_CONCURRENT_DOWNLOADS=2
-          # - STREAMRIP_USERS=user1,user2,user3 # optional: a list of users to separate downloads by user (e.g. DOWNLOAD_DIR/user1/)
-          # - DEFAULT_QUALITY=3 # optional: default quality selection (0=128kbps MP3, 1=320kbps MP3, 2=16-bit FLAC, 3=24-bit FLAC)
-          # - DEFAULT_SEARCH_SOURCE=qobuz # optional: default search source (qobuz, tidal, deezer, soundcloud)
-        volumes:
-          - /home/YOURUSERNAME/.config/streamrip:/config/streamrip:rw
-          - /home/YOURUSERNAME/media-server/data/Music:/music:rw
-          # - ./streamrip-web:/app:rw  # mount source code for development (image-dev)
-        ports:
-          - "5002:5000"
-        restart: unless-stopped
+    build:
+      context: ./streamrip-web
+      target: image-prod # use image-dev for local development
+    container_name: streamrip
+    user: "1000:1000"
+    environment:
+      - HOME=/config
+      - XDG_CONFIG_HOME=/config
+      - STREAMRIP_CONFIG=/config/streamrip/config.toml
+      - DOWNLOAD_DIR=/music
+      - MAX_CONCURRENT_DOWNLOADS=2
+      # - STREAMRIP_USERS=user1,user2,user3 # optional: a list of users to separate downloads by user (e.g. DOWNLOAD_DIR/user1/)
+      # - DEFAULT_QUALITY=3 # optional: default quality selection (0=128kbps MP3, 1=320kbps MP3, 2=16-bit FLAC, 3=24-bit FLAC)
+      # - DEFAULT_SEARCH_SOURCE=qobuz # optional: default search source (qobuz, tidal, deezer, soundcloud)
+    volumes:
+      - /home/YOURUSERNAME/.config/streamrip:/config/streamrip:rw
+      - /home/YOURUSERNAME/media-server/data/Music:/music:rw
+      # - ./streamrip-web:/app:rw  # mount source code for development (image-dev)
+    ports:
+      - "5002:5000"
+    restart: unless-stopped
 ```
 
 #### Docker Build Targets
 
 The Dockerfile supports multiple build targets:
 
-| Target | Description | Use Case |
-|--------|-------------|----------|
-| `image-prod` | Gunicorn with gevent workers | Production deployment |
-| `image-dev` | Flask dev server with auto-reload | Local development |
+| Target       | Description                       | Use Case              |
+| ------------ | --------------------------------- | --------------------- |
+| `image-prod` | Gunicorn with gevent workers      | Production deployment |
+| `image-dev`  | Flask dev server with auto-reload | Local development     |
 
 To switch targets, change `target:` in the `build` section of `docker-compose.yml`.
 
 3. Build and run:
+
 ```bash
 docker-compose up -d --build
 ```
@@ -131,17 +138,20 @@ docker-compose up -d --build
 ### Option 3: Manual Installation
 
 1. Clone this repository:
+
 ```bash
 git clone https://github.com/anoddname/streamrip-web.git
 cd streamrip-web
 ```
 
 2. Install dependencies:
+
 ```bash
 pip install flask gunicorn requests
 ```
 
 3. Run the application:
+
 ```bash
 python app.py
 ```
@@ -153,7 +163,7 @@ python app.py
 Before using Streamrip Web, you need to configure streamrip with your streaming service credentials:
 
 1. **Qobuz**: Requires email and password (or TOKEN)
-2. **Tidal**: Requires email and password  
+2. **Tidal**: Requires email and password
 3. **Deezer**: Requires ARL
 4. **SoundCloud**: Works without authentication
 
@@ -184,19 +194,20 @@ Check the [Streamrip documentation](https://github.com/nathom/streamrip/wiki) fo
 
 2. **Downloads failing/Searches timing out**: Check that your streaming service credentials are valid and properly configured in streamrip. Tidal will timeout, Deezer will throw errors.
 
-3. **Downloads disappearing from Active DL/History tabs**:  The files were still prolly downloaded, dont worry about it I'll fix it later it was pissing me off
+3. **Downloads disappearing from Active DL/History tabs**: The files were still prolly downloaded, dont worry about it I'll fix it later it was pissing me off
 
 4. **No images when run locally**: CORS issue
 
 5. Unable to open database file/Failed to parse JSON Error: This occurs when the config file inside the container has wrong paths. Fix it with:
+
 ```bash
 docker exec -it streamrip /bin/bash
 sed -i 's|/home/YOURUSERNAME/StreamripDownloads|/music|g' /config/streamrip/config.toml
 sed -i 's|/home/YOURUSERNAME/.config/streamrip/|/config/streamrip/|g' /config/streamrip/config.toml
 exit
 ```
-  Note to replace `YOURUSERNAME` with, you guessed it, your username.
 
+Note to replace `YOURUSERNAME` with, you guessed it, your username.
 
 ## Disclaimer
 
@@ -204,11 +215,4 @@ This tool is for educational purposes only. Ensure you comply with the terms of 
 
 ---
 
-
 Fueled by spite
-
-
-
-
-
-
