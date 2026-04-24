@@ -87,7 +87,9 @@ cd streamrip-web
 ```yaml
 services:    
   streamrip:
-        build: ./streamrip-web
+        build:
+          context: ./streamrip-web
+          target: image-prod  # use image-dev for local development
         container_name: streamrip
         user: "1000:1000" 
         environment:
@@ -102,10 +104,22 @@ services:
         volumes:
           - /home/YOURUSERNAME/.config/streamrip:/config/streamrip:rw
           - /home/YOURUSERNAME/media-server/data/Music:/music:rw
+          # - ./streamrip-web:/app:rw  # mount source code for development (image-dev)
         ports:
           - "5002:5000"
         restart: unless-stopped
 ```
+
+#### Docker Build Targets
+
+The Dockerfile supports multiple build targets:
+
+| Target | Description | Use Case |
+|--------|-------------|----------|
+| `image-prod` | Gunicorn with gevent workers | Production deployment |
+| `image-dev` | Flask dev server with auto-reload | Local development |
+
+To switch targets, change `target:` in the `build` section of `docker-compose.yml`.
 
 3. Build and run:
 ```bash

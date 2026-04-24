@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.11-slim AS base
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -39,4 +39,7 @@ USER 1000:1000
 EXPOSE 5000
 
 # Run with aggressive worker recycling
+FROM base AS image-prod
 CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--worker-class", "gevent", "--workers", "1", "--timeout", "60", "app:app"]
+FROM base AS image-dev
+CMD ["flask", "run", "--host=0.0.0.0", "--port=5000", "--reload"]
