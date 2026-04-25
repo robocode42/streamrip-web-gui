@@ -551,6 +551,10 @@ button:disabled {
     border-color: var(--text-tertiary);
 }
 
+.result-media {
+    display: contents;
+}
+
 .result-album-art {
     width: 60px;
     height: 60px;
@@ -613,6 +617,15 @@ button:disabled {
     padding: 10px 20px;
     font-size: 11px;
     flex-shrink: 0;
+    order: 999;
+}
+
+.result-download-btn:hover {
+    color: var(--text-primary);
+}
+
+.result-download-icon {
+    display: none;
 }
 
 .result-extra-meta {
@@ -951,6 +964,30 @@ button:disabled {
 @media (max-width: 480px) {
     h1 {
         font-size: 40px;
+    }
+
+    .result-media {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .result-download-btn {
+        order: 0;
+        width: 60px;
+        padding: 6px 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .result-download-text {
+        display: none;
+    }
+
+    .result-download-icon {
+        display: block;
     }
 
     .file-item {
