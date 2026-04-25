@@ -468,26 +468,26 @@ function displayCurrentPage() {
     .map(
       (result) => `
         <div class="search-result-item" data-id="${result.id}" data-source="${result.service}" data-type="${result.type}" data-url="${result.url || ""}" data-title="${result.title || ""}" data-artist="${result.artist || ""}" data-album-art="${result.album_art || ""}">
-            <div class="result-album-art placeholder" id="art-${result.id}">▶</div>
+            <div class="result-media">
+                <div class="result-album-art placeholder" id="art-${result.id}">▶</div>
+                ${
+                  result.url
+                    ? `<button class="result-download-btn" onclick="startDownload(this)">
+                           <span class="result-download-text">DOWNLOAD</span>
+                           <svg class="result-download-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M12 16l4-5h-3V4h-2v7H8l4 5zm-7 2v2h14v-2H5z"/></svg>
+                       </button>`
+                    : `<button class="result-download-btn" disabled style="opacity: 0.3;">
+                           <span class="result-download-text">NO URL</span>
+                           <svg class="result-download-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M12 16l4-5h-3V4h-2v7H8l4 5zm-7 2v2h14v-2H5z"/></svg>
+                       </button>`
+                }
+            </div>
             <div class="result-info">
                 <span class="result-service">${result.service}</span>
                 ${result.title ? `<div class="result-title">${result.title}</div>` : ""}
                 <div class="result-artist">${result.artist || result.desc}</div>
                 ${result.id ? `<div class="result-id">ID: ${result.id} (${result.type})</div>` : ""}
             </div>
-            ${
-              result.url
-                ? `
-                <button class="result-download-btn" onclick="startDownload(this)">
-                    DOWNLOAD
-                </button>
-            `
-                : `
-                <button class="result-download-btn" disabled style="opacity: 0.3;">
-                    NO URL
-                </button>
-            `
-            }
         </div>
     `,
     )
