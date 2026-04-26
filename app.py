@@ -5,7 +5,6 @@ import os
 import queue
 import re
 import shutil
-import subprocess
 import threading
 import time
 
@@ -26,10 +25,11 @@ from streamrip.client import (
 )
 from streamrip.config import Config
 from streamrip.metadata.search_results import SearchResults
+from streamrip.rip.main import Main
 
 # new logging config
 logging.basicConfig(
-    level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -57,7 +57,6 @@ else:
 class DownloadWorker(threading.Thread):
     def __init__(self):
         super().__init__(daemon=True)
-        self.current_process = None
 
     def run(self):
         while True:
@@ -67,7 +66,7 @@ class DownloadWorker(threading.Thread):
 
             task_id = task["id"]
             url = task["url"]
-            quality = task.get("quality", 3)
+            quality = task.get("quality", DEFAULT_QUALITY)
             metadata = task.get("metadata", {})
             download_dir = task.get("directory", DOWNLOAD_DIR)
             user = task.get("user")
@@ -90,75 +89,64 @@ class DownloadWorker(threading.Thread):
                 }
             )
 
-            output_lines = []
-            process = None
-
             try:
-                cmd = ["rip"]
-                if os.path.exists(STREAMRIP_CONFIG):
-                    cmd.extend(["--config-path", STREAMRIP_CONFIG])
-                cmd.extend(["-f", download_dir])
-                cmd.extend(["-q", str(quality)])
-                cmd.extend(["url", url])
-
-                process = subprocess.Popen(
-                    cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                    encoding="utf-8",
-                    errors="replace",
-                    bufsize=1,
+                self._download_with_library(
+                    task_id, url, quality, download_dir, metadata, user
                 )
-
-                self.current_process = process
-
-                for line in process.stdout:
-                    line = line.strip()
-                    if line:
-                        output_lines.append(line)
-                        if len(output_lines) % 10 == 0:
-                            broadcast_sse(
-                                {
-                                    "type": "download_progress",
-                                    "id": task_id,
-                                    "output": "\n".join(output_lines[-5:]),
-                                    "progress": {"raw_output": True},
-                                }
-                            )
-
-                process.wait()
 
                 broadcast_sse(
                     {
                         "type": "download_completed",
                         "id": task_id,
-                        "status": "completed" if process.returncode == 0 else "failed",
+                        "status": "completed",
                         "metadata": metadata,
-                        "output": "\n".join(output_lines),
                         "user": user,
                     }
                 )
-
             except Exception as e:
+                logger.exception(f"Download failed for task {task_id}: {e}")
                 broadcast_sse(
                     {
                         "type": "download_error",
                         "id": task_id,
+                        "status": "failed",
+                        "metadata": metadata,
                         "error": str(e),
-                        "output": "\n".join(output_lines) if output_lines else str(e),
                         "user": user,
                     }
                 )
-
             finally:
-                self.current_process = None
                 if task_id in active_downloads:
+                    logger.info(f"TASKID {task_id}")
                     del active_downloads[task_id]
-                if process and process.poll() is None:
-                    process.terminate()
 
             download_queue.task_done()
+
+    def _download_with_library(
+        self, task_id, url, quality, download_dir, metadata, user
+    ):
+        """Download using streamrip library instead of subprocess."""
+
+        async def _async_download():
+            config = Config(STREAMRIP_CONFIG)
+            # Set download folder and quality for this session
+            config.session.downloads.folder = download_dir
+            config.session.qobuz.quality = quality
+            config.session.tidal.quality = quality
+            config.session.deezer.quality = quality
+            config.session.soundcloud.quality = quality
+            # Disable CLI progress bars (we use SSE for progress)
+            config.session.cli.progress_bars = False
+            config.session.cli.text_output = False
+
+            async with Main(config) as main:
+                await main.add(url)
+                await main.resolve()
+
+                for item in main.media:
+                    await item.rip()
+
+        asyncio.run(_async_download())
 
 
 def broadcast_sse(data):

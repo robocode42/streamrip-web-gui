@@ -151,7 +151,9 @@ function handleDownloadCompleted(data) {
     download.status = data.status;
     download.endTime = Date.now();
     download.output =
-      data.output || download.allOutput.join("\n") || "No output captured";
+      data.output ||
+      (download.allOutput && download.allOutput.join("\n")) ||
+      "No output captured";
     updateDownloadElement(data.id, download);
 
     setTimeout(() => {
