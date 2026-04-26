@@ -536,7 +536,7 @@ def get_album_art():
             if media_type == "artist":
                 try:
                     response = requests.get(
-                        f"https://api.deezer.com/artist/{item_id}", timeout=3
+                        f"https://api.deezer.com/artist/{item_id}", timeout=5
                     )
                     if response.status_code == 200:
                         data = response.json()
@@ -544,15 +544,32 @@ def get_album_art():
                         if album_art:
                             album_art_cache[cache_key] = album_art
                             return jsonify({"album_art": album_art})
-                except:
+                except Exception:
                     pass
                 return jsonify({"album_art": ""})
             else:
-                album_art = f"https://api.deezer.com/{media_type}/{item_id}/image"
-                if album_art:
-                    album_art_cache[cache_key] = album_art
-                    return jsonify({"album_art": album_art})
-                return jsonify({"album_art": ""})
+                # Fetch album/track details for release_date and num_tracks
+                result = {
+                    "album_art": f"https://api.deezer.com/{media_type}/{item_id}/image"
+                }
+                try:
+                    response = requests.get(
+                        f"https://api.deezer.com/{media_type}/{item_id}", timeout=5
+                    )
+                    if response.status_code == 200:
+                        data = response.json()
+                        if media_type == "album":
+                            result["year"] = data.get("release_date", "").split("-")[0]
+                            result["release_type"] = data.get("record_type", "")
+                            result["tracks_count"] = str(data.get("nb_tracks", ""))
+                        elif media_type == "track" and data.get("album"):
+                            result["year"] = data.get("release_date", "").split("-")[0]
+                            result["tracks_count"] = ""
+                except Exception as e:
+                    logger.debug(f"Failed to fetch Deezer metadata for {item_id}: {e}")
+
+                album_art_cache[cache_key] = result
+                return jsonify(result)
 
         elif source == "soundcloud":
             # SoundCloud doesn't provide easy access to artwork
