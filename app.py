@@ -48,6 +48,7 @@ download_history = []
 sse_clients = []
 album_art_cache = {}
 cache_lock = threading.Lock()
+download_lock = threading.Lock()
 if STREAMRIP_USERS:
     USERS = [user.strip() for user in STREAMRIP_USERS.split(",") if user.strip()]
 else:
@@ -90,9 +91,10 @@ class DownloadWorker(threading.Thread):
             )
 
             try:
-                self._download_with_library(
-                    task_id, url, quality, download_dir, metadata, user
-                )
+                with download_lock:
+                    self._download_with_library(
+                        task_id, url, quality, download_dir, metadata, user
+                    )
 
                 broadcast_sse(
                     {
