@@ -510,7 +510,7 @@ def get_album_art():
 
     try:
         if source == "qobuz":
-            result = fetch_single_album_art(item_id, media_type, None)
+            result = fetch_qobuz_album_art_info(item_id, media_type, None)
             album_art_cache[cache_key] = result
             return jsonify(
                 {
@@ -527,49 +527,12 @@ def get_album_art():
             else:
                 album_art = f"https://resources.tidal.com/images/{item_id}/320x320.jpg"
 
-            if album_art:
-                album_art_cache[cache_key] = album_art
-                return jsonify({"album_art": album_art})
-            return jsonify({"album_art": ""})
+            return jsonify({"album_art": album_art})
 
         elif source == "deezer":
-            if media_type == "artist":
-                try:
-                    response = requests.get(
-                        f"https://api.deezer.com/artist/{item_id}", timeout=5
-                    )
-                    if response.status_code == 200:
-                        data = response.json()
-                        album_art = data.get("picture_medium", data.get("picture", ""))
-                        if album_art:
-                            album_art_cache[cache_key] = album_art
-                            return jsonify({"album_art": album_art})
-                except Exception:
-                    pass
-                return jsonify({"album_art": ""})
-            else:
-                # Fetch album/track details for release_date and num_tracks
-                result = {
-                    "album_art": f"https://api.deezer.com/{media_type}/{item_id}/image"
-                }
-                try:
-                    response = requests.get(
-                        f"https://api.deezer.com/{media_type}/{item_id}", timeout=5
-                    )
-                    if response.status_code == 200:
-                        data = response.json()
-                        if media_type == "album":
-                            result["year"] = data.get("release_date", "").split("-")[0]
-                            result["release_type"] = data.get("record_type", "")
-                            result["tracks_count"] = str(data.get("nb_tracks", ""))
-                        elif media_type == "track" and data.get("album"):
-                            result["year"] = data.get("release_date", "").split("-")[0]
-                            result["tracks_count"] = ""
-                except Exception as e:
-                    logger.debug(f"Failed to fetch Deezer metadata for {item_id}: {e}")
-
-                album_art_cache[cache_key] = result
-                return jsonify(result)
+            result = fetch_deezer_album_art_info(item_id, media_type)
+            album_art_cache[cache_key] = result
+            return jsonify(result)
 
         elif source == "soundcloud":
             # SoundCloud doesn't provide easy access to artwork
@@ -635,7 +598,7 @@ def get_qobuz_credentials():
     return {"app_id": "950096963", "token": None}
 
 
-def fetch_single_album_art(item_id, media_type, app_id):
+def fetch_qobuz_album_art_info(item_id, media_type, app_id):
     creds = get_qobuz_credentials()
     if not creds["token"]:
         return {}
@@ -674,6 +637,42 @@ def fetch_single_album_art(item_id, media_type, app_id):
     except Exception as e:
         logger.error(f"Error fetching Qobuz album art: {e}")
     return {}
+
+
+def fetch_deezer_album_art_info(item_id, media_type):
+    """Fetch album art and metadata from Deezer API."""
+    result = {
+        "album_art": "",
+        "tracks_count": None,
+        "release_type": None,
+        "year": None,
+    }
+    try:
+        endpoint = f"https://api.deezer.com/{media_type}/{item_id}"
+        response = requests.get(endpoint, timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            if media_type == "artist":
+                result["album_art"] = data.get(
+                    "picture_medium", data.get("picture", "")
+                )
+            elif media_type == "album":
+                result["album_art"] = data.get(
+                    "cover_medium", data.get("cover_small", "")
+                )
+                result["year"] = data.get("release_date", "").split("-")[0] or None
+                result["release_type"] = data.get("record_type", "")
+                result["tracks_count"] = str(data.get("nb_tracks", ""))
+            elif media_type == "track":
+                album = data.get("album", {})
+                result["album_art"] = album.get(
+                    "cover_medium", album.get("cover_small", "")
+                )
+                result["year"] = data.get("release_date", "").split("-")[0] or None
+                result["tracks_count"] = ""
+    except Exception as e:
+        logger.debug(f"Failed to fetch Deezer metadata for {item_id}: {e}")
+    return result
 
 
 def get_qobuz_app_id():
