@@ -530,7 +530,7 @@ def get_album_art():
             return jsonify({"album_art": album_art})
 
         elif source == "deezer":
-            result = fetch_deezer_album_art_info(item_id, media_type)
+            result = fetch_deezer_metadata(item_id, media_type)
             album_art_cache[cache_key] = result
             return jsonify(result)
 
@@ -637,42 +637,6 @@ def fetch_qobuz_album_art_info(item_id, media_type, app_id):
     except Exception as e:
         logger.error(f"Error fetching Qobuz album art: {e}")
     return {}
-
-
-def fetch_deezer_album_art_info(item_id, media_type):
-    """Fetch album art and metadata from Deezer API."""
-    result = {
-        "album_art": "",
-        "tracks_count": None,
-        "release_type": None,
-        "year": None,
-    }
-    try:
-        endpoint = f"https://api.deezer.com/{media_type}/{item_id}"
-        response = requests.get(endpoint, timeout=5)
-        if response.status_code == 200:
-            data = response.json()
-            if media_type == "artist":
-                result["album_art"] = data.get(
-                    "picture_medium", data.get("picture", "")
-                )
-            elif media_type == "album":
-                result["album_art"] = data.get(
-                    "cover_medium", data.get("cover_small", "")
-                )
-                result["year"] = data.get("release_date", "").split("-")[0] or None
-                result["release_type"] = data.get("record_type", "")
-                result["tracks_count"] = str(data.get("nb_tracks", ""))
-            elif media_type == "track":
-                album = data.get("album", {})
-                result["album_art"] = album.get(
-                    "cover_medium", album.get("cover_small", "")
-                )
-                result["year"] = data.get("release_date", "").split("-")[0] or None
-                result["tracks_count"] = ""
-    except Exception as e:
-        logger.debug(f"Failed to fetch Deezer metadata for {item_id}: {e}")
-    return result
 
 
 def get_qobuz_app_id():
@@ -836,26 +800,46 @@ def fetch_qobuz_metadata(item_id, item_type):
 
 
 def fetch_deezer_metadata(item_id, item_type):
-    metadata = {}
+    """Fetch all available metadata from Deezer API."""
+    metadata = {
+        "title": "",
+        "artist": "",
+        "album_art": "",
+        "tracks_count": None,
+        "release_type": None,
+        "year": None,
+    }
     try:
         api_base = "https://api.deezer.com"
+        endpoint = f"{api_base}/{item_type}/{item_id}"
+        response = requests.get(endpoint, timeout=5)
+        if response.status_code == 200:
+            data = response.json()
 
-        if item_type == "album":
-            response = requests.get(f"{api_base}/album/{item_id}", timeout=5)
-            if response.status_code == 200:
-                data = response.json()
+            if item_type == "artist":
+                metadata["album_art"] = data.get(
+                    "picture_medium", data.get("picture_small", "")
+                )
+
+            elif item_type == "album":
                 metadata["title"] = data.get("title", "")
                 metadata["artist"] = data.get("artist", {}).get("name", "")
-                metadata["album_art"] = data.get("cover_medium", "")
+                metadata["album_art"] = data.get(
+                    "cover_medium", data.get("cover_small", "")
+                )
+                metadata["year"] = data.get("release_date", "").split("-")[0] or None
+                metadata["release_type"] = data.get("record_type", "")
+                metadata["tracks_count"] = str(data.get("nb_tracks", ""))
 
-        elif item_type == "track":
-            response = requests.get(f"{api_base}/track/{item_id}", timeout=5)
-            if response.status_code == 200:
-                data = response.json()
+            elif item_type == "track":
                 metadata["title"] = data.get("title", "")
                 metadata["artist"] = data.get("artist", {}).get("name", "")
                 album = data.get("album", {})
-                metadata["album_art"] = album.get("cover_medium", "")
+                metadata["album_art"] = album.get(
+                    "cover_medium", album.get("cover_small", "")
+                )
+                metadata["year"] = data.get("release_date", "").split("-")[0] or None
+                metadata["tracks_count"] = ""
 
     except Exception as e:
         logger.error(f"Error fetching Deezer metadata: {e}")
