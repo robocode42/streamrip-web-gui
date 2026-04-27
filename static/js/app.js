@@ -488,7 +488,7 @@ function displayCurrentPage() {
                 <span class="result-service">${result.service}</span>
                 ${result.title ? `<div class="result-title">${result.title}</div>` : ""}
                 <div class="result-artist">${result.artist || result.desc}</div>
-                ${result.id ? `<div class="result-id">ID: ${result.id} (${result.type})</div>` : ""}
+                ${result.id ? `<div class="result-id">ID: ${result.id} (${result.type})${result.url ? ` <a href="${result.url}" target="_blank" rel="noopener noreferrer" title="Open in ${result.service}" class="result-source-link"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg></a>` : ""}</div>` : ""}
             </div>
         </div>
     `,

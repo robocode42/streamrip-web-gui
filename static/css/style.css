@@ -613,6 +613,25 @@ button:disabled {
     font-family: "IBM Plex Mono", monospace;
 }
 
+.result-source-link {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 4px;
+    color: var(--text-tertiary);
+    text-decoration: none;
+    vertical-align: middle;
+    transition: color 0.2s ease;
+}
+
+.result-source-link:hover {
+    color: var(--text-primary);
+}
+
+.result-source-link svg {
+    width: 14px;
+    height: 14px;
+}
+
 .result-download-btn {
     padding: 10px 20px;
     font-size: 11px;
