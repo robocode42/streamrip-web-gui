@@ -1,11 +1,10 @@
+import asyncio
 import json
 import logging
 import os
 import queue
 import re
 import shutil
-import subprocess
-import tempfile
 import threading
 import time
 
@@ -18,10 +17,19 @@ from flask import (
     request,
     stream_with_context,
 )
+from streamrip.client import (
+    DeezerClient,
+    QobuzClient,
+    SoundcloudClient,
+    TidalClient,
+)
+from streamrip.config import Config
+from streamrip.metadata.search_results import SearchResults
+from streamrip.rip.main import Main
 
 # new logging config
 logging.basicConfig(
-    level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -40,6 +48,7 @@ download_history = []
 sse_clients = []
 album_art_cache = {}
 cache_lock = threading.Lock()
+download_lock = threading.Lock()
 if STREAMRIP_USERS:
     USERS = [user.strip() for user in STREAMRIP_USERS.split(",") if user.strip()]
 else:
@@ -49,7 +58,6 @@ else:
 class DownloadWorker(threading.Thread):
     def __init__(self):
         super().__init__(daemon=True)
-        self.current_process = None
 
     def run(self):
         while True:
@@ -59,7 +67,7 @@ class DownloadWorker(threading.Thread):
 
             task_id = task["id"]
             url = task["url"]
-            quality = task.get("quality", 3)
+            quality = task.get("quality", DEFAULT_QUALITY)
             metadata = task.get("metadata", {})
             download_dir = task.get("directory", DOWNLOAD_DIR)
             user = task.get("user")
@@ -82,75 +90,65 @@ class DownloadWorker(threading.Thread):
                 }
             )
 
-            output_lines = []
-            process = None
-
             try:
-                cmd = ["rip"]
-                if os.path.exists(STREAMRIP_CONFIG):
-                    cmd.extend(["--config-path", STREAMRIP_CONFIG])
-                cmd.extend(["-f", download_dir])
-                cmd.extend(["-q", str(quality)])
-                cmd.extend(["url", url])
-
-                process = subprocess.Popen(
-                    cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                    encoding="utf-8",
-                    errors="replace",
-                    bufsize=1,
-                )
-
-                self.current_process = process
-
-                for line in process.stdout:
-                    line = line.strip()
-                    if line:
-                        output_lines.append(line)
-                        if len(output_lines) % 10 == 0:
-                            broadcast_sse(
-                                {
-                                    "type": "download_progress",
-                                    "id": task_id,
-                                    "output": "\n".join(output_lines[-5:]),
-                                    "progress": {"raw_output": True},
-                                }
-                            )
-
-                process.wait()
+                with download_lock:
+                    self._download_with_library(
+                        task_id, url, quality, download_dir, metadata, user
+                    )
 
                 broadcast_sse(
                     {
                         "type": "download_completed",
                         "id": task_id,
-                        "status": "completed" if process.returncode == 0 else "failed",
+                        "status": "completed",
                         "metadata": metadata,
-                        "output": "\n".join(output_lines),
                         "user": user,
                     }
                 )
-
             except Exception as e:
+                logger.exception(f"Download failed for task {task_id}: {e}")
                 broadcast_sse(
                     {
                         "type": "download_error",
                         "id": task_id,
+                        "status": "failed",
+                        "metadata": metadata,
                         "error": str(e),
-                        "output": "\n".join(output_lines) if output_lines else str(e),
                         "user": user,
                     }
                 )
-
             finally:
-                self.current_process = None
                 if task_id in active_downloads:
+                    logger.info(f"TASKID {task_id}")
                     del active_downloads[task_id]
-                if process and process.poll() is None:
-                    process.terminate()
 
             download_queue.task_done()
+
+    def _download_with_library(
+        self, task_id, url, quality, download_dir, metadata, user
+    ):
+        """Download using streamrip library instead of subprocess."""
+
+        async def _async_download():
+            config = Config(STREAMRIP_CONFIG)
+            # Set download folder and quality for this session
+            config.session.downloads.folder = download_dir
+            config.session.qobuz.quality = quality
+            config.session.tidal.quality = quality
+            config.session.deezer.quality = quality
+            config.session.soundcloud.quality = quality
+            # Disable CLI progress bars (we use SSE for progress)
+            config.session.cli.progress_bars = False
+            config.session.cli.text_output = False
+
+            async with Main(config) as main:
+                await main.add(url)
+                await main.resolve()
+
+                for item in main.media:
+                    await item.rip()
+
+        asyncio.run(_async_download())
 
 
 def broadcast_sse(data):
@@ -352,6 +350,42 @@ def config():
             return jsonify({"error": str(e)}), 500
 
 
+def _search_with_library(source, search_type, query, config_path):
+    """Search using streamrip library. Returns list of result dicts."""
+
+    async def _async_search():
+        # Map source strings to client classes
+        client_map = {
+            "qobuz": QobuzClient,
+            "tidal": TidalClient,
+            "deezer": DeezerClient,
+            "soundcloud": SoundcloudClient,
+        }
+        client_class = client_map.get(source)
+        if client_class is None:
+            raise ValueError(f"Unsupported source: {source}")
+
+        config = Config(config_path)
+        client = client_class(config)
+
+        try:
+            await client.login()
+            pages = await client.search(search_type, query, limit=100)
+        finally:
+            try:
+                await client.session.close()
+            except Exception:
+                pass
+
+        if not pages:
+            return []
+
+        search_results = SearchResults.from_pages(source, search_type, pages)
+        return search_results.as_list(source)
+
+    return asyncio.run(_async_search())
+
+
 @app.route("/api/search", methods=["POST"])
 def search_music():
     data = request.json
@@ -359,7 +393,6 @@ def search_music():
     search_type = data.get("type", "album")
     source = data.get("source", "qobuz")
 
-    # new logging
     logger.info("=" * 60)
     logger.info("SEARCH REQUEST RECEIVED")
     logger.info(f"Query: '{query}'")
@@ -384,209 +417,37 @@ def search_music():
         )
 
     try:
-        with tempfile.NamedTemporaryFile(
-            mode="w+", suffix=".txt", delete=False
-        ) as tmp_file:
-            tmp_path = tmp_file.name
-
-        logger.info(f"Created temp file: {tmp_path}")
-
-        cmd = ["rip"]
-        if os.path.exists(STREAMRIP_CONFIG):
-            cmd.extend(["--config-path", STREAMRIP_CONFIG])
-            logger.info(f"Using config file: {STREAMRIP_CONFIG}")
-        else:
-            logger.warning(f"Config file not found at: {STREAMRIP_CONFIG}")
-
-        cmd.extend(["search", "--output-file", tmp_path])
-        cmd.extend([source, search_type, query])
-
-        logger.info(f"Executing command: {' '.join(cmd)}")
-
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=30,
-        )
-
-        logger.info(f"Command completed with return code: {result.returncode}")
-
-        if result.stdout:
-            logger.info(f"STDOUT ({len(result.stdout)} chars total):\n{result.stdout}")
-        else:
-            logger.info("STDOUT: (empty)")
-
-        if result.stderr:
-            logger.warning(
-                f"STDERR ({len(result.stderr)} chars total):\n{result.stderr}"
-            )
-        else:
-            logger.info("STDERR: (empty)")
-
-        if result.returncode != 0:
-            logger.error(
-                f"Streamrip command failed with return code {result.returncode}"
-            )
-            error_msg = "Streamrip search failed"
-
-            if result.stdout:
-                if "InvalidAppSecretError" in result.stdout:
-                    error_msg = "Invalid Qobuz app secrets. Update your config with valid secrets or run 'rip config --update' in the container."
-                elif "Traceback" in result.stdout:
-                    error_msg = (
-                        "Streamrip encountered an error (check logs for full traceback)"
-                    )
-                elif "authentication" in result.stdout.lower():
-                    error_msg = (
-                        "Authentication failed - check your Qobuz credentials in config"
-                    )
-                elif "credentials" in result.stdout.lower():
-                    error_msg = "Invalid credentials - check your Qobuz configuration"
-
-            return jsonify(
-                {
-                    "error": error_msg,
-                    "debug_info": {
-                        "return_code": result.returncode,
-                        "stdout_preview": result.stdout
-                        if result.stdout
-                        else "",  # Send full output
-                        "stderr_preview": result.stderr if result.stderr else "",
-                        "command": " ".join(cmd),
-                    },
-                }
-            ), 500
-
-        # Check if temp file exists and has content
-        if os.path.exists(tmp_path):
-            file_size = os.path.getsize(tmp_path)
-            logger.info(f"Temp file exists, size: {file_size} bytes")
-        else:
-            logger.error(f"Temp file does not exist: {tmp_path}")
+        raw_results = _search_with_library(source, search_type, query, STREAMRIP_CONFIG)
 
         results = []
+        for idx, item in enumerate(raw_results):
+            item_id = item.get("id", "")
+            media_type = item.get("media_type", search_type)
+            url = construct_url(item.get("source", source), media_type, item_id)
 
-        try:
-            with open(tmp_path, "r") as f:
-                content = f.read()
-                logger.info(f"Streamrip search output: {content[:500]}")
-                logger.info(f"File content length: {len(content)} characters")
-                logger.debug(f"File content (first 500 chars):\n{content[:500]}")
+            desc = item.get("desc", "")
+            artist = ""
+            title = desc
 
-                if not content or content.strip() == "":
-                    logger.warning("Temp file is empty!")
-                    return jsonify(
-                        {
-                            "results": [],
-                            "query": query,
-                            "source": source,
-                            "total_count": 0,
-                            "message": "No results found. The search returned empty results.",
-                            "debug_info": {
-                                "return_code": result.returncode,
-                                "stdout": result.stdout[:200] if result.stdout else "",
-                                "stderr": result.stderr[:200] if result.stderr else "",
-                            },
-                        }
-                    )
+            if " by " in desc:
+                parts = desc.rsplit(" by ", 1)
+                title = parts[0]
+                artist = parts[1]
 
-                try:
-                    search_data = json.loads(content)
-                    logger.info(
-                        f"Successfully parsed JSON with {len(search_data)} items"
-                    )
+            result_item = {
+                "id": item_id,
+                "service": item.get("source", source),
+                "type": media_type,
+                "artist": artist if artist else desc,
+                "title": title if artist else "",
+                "desc": desc,
+                "url": url,
+                "album_art": "",
+            }
+            results.append(result_item)
 
-                    for idx, item in enumerate(search_data):
-                        item_id = item.get("id", "")
-                        media_type = item.get("media_type", search_type)
-                        url = construct_url(
-                            item.get("source", source), media_type, item_id
-                        )
-
-                        desc = item.get("desc", "")
-                        artist = ""
-                        title = desc
-
-                        if " by " in desc:
-                            parts = desc.rsplit(" by ", 1)
-                            title = parts[0]
-                            artist = parts[1]
-
-                        result_item = {
-                            "id": item_id,
-                            "service": item.get("source", source),
-                            "type": media_type,
-                            "artist": artist if artist else desc,
-                            "title": title if artist else "",
-                            "desc": desc,
-                            "url": url,
-                            "album_art": "",
-                        }
-                        results.append(result_item)
-
-                        if idx < 3:  # Log first 3 results
-                            logger.debug(f"Result {idx + 1}: {result_item}")
-
-                except json.JSONDecodeError as e:
-                    logger.error("=" * 60)
-                    logger.error("JSON PARSE ERROR")
-                    logger.error(f"Error: {e}")
-                    logger.error(f"Error position: line {e.lineno}, column {e.colno}")
-                    logger.error(f"Content length: {len(content)} characters")
-                    logger.error(f"Content type: {type(content)}")
-                    logger.error(f"Content repr: {repr(content[:200])}")
-                    logger.error("-" * 60)
-                    logger.error(f"FULL CONTENT (all {len(content)} chars):")
-                    logger.error(content)
-                    logger.error("=" * 60)
-
-                    # Also log what streamrip actually output
-                    logger.error("STREAMRIP STDOUT:")
-                    logger.error(result.stdout if result.stdout else "(empty)")
-                    logger.error("-" * 60)
-                    logger.error("STREAMRIP STDERR:")
-                    logger.error(result.stderr if result.stderr else "(empty)")
-                    logger.error("=" * 60)
-
-                    return (
-                        jsonify(
-                            {
-                                "error": "Failed to parse search results",
-                                "debug_info": {
-                                    "parse_error": str(e),
-                                    "content_length": len(content),
-                                    "content_preview": content[:500],
-                                    "full_content": content,  # Include full content in response
-                                    "stdout": result.stdout,
-                                    "stderr": result.stderr,
-                                },
-                            }
-                        ),
-                        500,
-                    )
-
-        except FileNotFoundError:
-            logger.error(f"Temp file not found: {tmp_path}")
-            return jsonify(
-                {
-                    "error": "Search output file not found",
-                    "debug_info": {
-                        "temp_path": tmp_path,
-                        "return_code": result.returncode,
-                    },
-                }
-            ), 500
-
-        finally:
-            if os.path.exists(tmp_path):
-                try:
-                    os.remove(tmp_path)
-                    logger.debug(f"Removed temp file: {tmp_path}")
-                except Exception as e:
-                    logger.warning(f"Failed to remove temp file: {e}")
+            if idx < 3:
+                logger.debug(f"Result {idx + 1}: {result_item}")
 
         logger.info(f"Returning {len(results)} results")
 
@@ -599,13 +460,26 @@ def search_music():
             }
         )
 
-    except subprocess.TimeoutExpired:
-        logger.error("Search command timed out after 30 seconds")
-        return jsonify({"error": "Search timed out"}), 500
     except Exception as e:
-        logger.exception(f"Unexpected error during search: {e}")
+        logger.exception(f"Error during library search: {e}")
+        error_msg = "Search failed"
+        exc_type = type(e).__name__
+
+        if "credential" in exc_type.lower() or "authentication" in str(e).lower():
+            error_msg = "Authentication failed - check your credentials in config"
+        elif "secret" in str(e).lower():
+            error_msg = "Invalid app secrets. Update your config."
+        elif "timeout" in str(e).lower():
+            error_msg = "Search timed out"
+
         return jsonify(
-            {"error": str(e), "debug_info": {"exception_type": type(e).__name__}}
+            {
+                "error": error_msg,
+                "debug_info": {
+                    "exception_type": exc_type,
+                    "message": str(e),
+                },
+            }
         ), 500
 
 
@@ -662,7 +536,7 @@ def get_album_art():
             if media_type == "artist":
                 try:
                     response = requests.get(
-                        f"https://api.deezer.com/artist/{item_id}", timeout=3
+                        f"https://api.deezer.com/artist/{item_id}", timeout=5
                     )
                     if response.status_code == 200:
                         data = response.json()
@@ -670,15 +544,32 @@ def get_album_art():
                         if album_art:
                             album_art_cache[cache_key] = album_art
                             return jsonify({"album_art": album_art})
-                except:
+                except Exception:
                     pass
                 return jsonify({"album_art": ""})
             else:
-                album_art = f"https://api.deezer.com/{media_type}/{item_id}/image"
-                if album_art:
-                    album_art_cache[cache_key] = album_art
-                    return jsonify({"album_art": album_art})
-                return jsonify({"album_art": ""})
+                # Fetch album/track details for release_date and num_tracks
+                result = {
+                    "album_art": f"https://api.deezer.com/{media_type}/{item_id}/image"
+                }
+                try:
+                    response = requests.get(
+                        f"https://api.deezer.com/{media_type}/{item_id}", timeout=5
+                    )
+                    if response.status_code == 200:
+                        data = response.json()
+                        if media_type == "album":
+                            result["year"] = data.get("release_date", "").split("-")[0]
+                            result["release_type"] = data.get("record_type", "")
+                            result["tracks_count"] = str(data.get("nb_tracks", ""))
+                        elif media_type == "track" and data.get("album"):
+                            result["year"] = data.get("release_date", "").split("-")[0]
+                            result["tracks_count"] = ""
+                except Exception as e:
+                    logger.debug(f"Failed to fetch Deezer metadata for {item_id}: {e}")
+
+                album_art_cache[cache_key] = result
+                return jsonify(result)
 
         elif source == "soundcloud":
             # SoundCloud doesn't provide easy access to artwork
